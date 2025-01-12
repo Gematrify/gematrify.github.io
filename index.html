@@ -3,9 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CSV Data Table</title>
+  <title>Gematria Insights | CSV Data Table</title>
+    <!-- Meta Description -->
+  <meta name="description" content="Discover the numeric meanings of words and phrases with our Gematria CSV tool. Explore top words by occurrence and contribute to the growing gematria database.">
+
+  <!-- Keywords -->
+  <meta name="keywords" content="gematria, gematria calculator, gematria database, numeric meanings, CSV data, gematria insights">
+
+  <!-- Author -->
+  <meta name="author" content="Gematrify">
+
+  <!-- Robots -->
+  <meta name="robots" content="index, follow">
+
+  <!-- Open Graph for Social Media -->
+  <meta property="og:title" content="Gematria Insights | CSV Data Table">
+  <meta property="og:description" content="Discover the numeric meanings of words and phrases with our Gematria CSV tool. Explore top words by occurrence and contribute to the growing gematria database.">
+  <meta property="og:url" content="https://gematrify.github.io/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://raw.githubusercontent.com/Gematrify/gematrify.github.io/refs/heads/main/gematrify_banner.png">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Gematria Insights | CSV Data Table">
+  <meta name="twitter:description" content="Explore gematria insights with our CSV data tool and contribute to the growing gematria database.">
+  <meta name="twitter:image" content="https://raw.githubusercontent.com/Gematrify/gematrify.github.io/refs/heads/main/gematrify_banner.png">
+
   <!-- DataTables CSS -->
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.5/css/jquery.dataTables.min.css">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- jQuery -->
   <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
   <!-- DataTables JS -->
@@ -13,6 +40,12 @@
 </head>
 <body>
   <h1>CSV Data Table</h1>
+    <p>
+    Welcome to the gematria insights page! Explore the numeric meanings of words and phrases using this tool.
+    Explore our gematria calculator and contribute to the growing gematria database by visiting our main website:
+    <a href="https://gematrify.com" target="_blank" rel="noopener">Gematrify.com</a>.
+  </p>
+
   <table id="csvTable" class="display">
     <thead>
       <tr>
@@ -27,24 +60,64 @@
     </tbody>
   </table>
 
+  <h2>Top Words by Occurrence</h2>
+  <label for="filter">Filter by Value:</label>
+  <select id="filter">
+    <option value="all">All</option>
+    <option value="444">444</option>
+    <option value="666">666</option>
+    <option value="888">888</option>
+  </select>
+  <canvas id="wordOccurrenceChart" width="400" height="100"></canvas>
+
+    <p>
+    Want to contribute or view the source code? Check out the GitHub repository:
+    <a href="https://github.com/Gematrify/gematrify.github.io" target="_blank" rel="noopener">GitHub Repository</a>.
+  </p>
+
   <script>
-    $(document).ready(function() {
+    $(document).ready(function () {
       // Fetch and process the CSV file
       fetch('gematrify.csv')
         .then(response => response.text())
         .then(csvData => {
           const rows = csvData.split('\n').slice(1); // Split lines, skip header
           const tableBody = $('#csvTable tbody');
+          const data = [];
+          const wordCount = {};
 
           rows.forEach(row => {
             const columns = row.split(',');
             if (columns.length === 4) { // Ensure row has 4 columns
+              const text = columns[1];
+              const englishValue = parseInt(columns[2]);
+              const simpleValue = parseInt(columns[3]);
+
+              if (!wordCount[text]) {
+                wordCount[text] = {
+                  count: 0,
+                  english_value: englishValue,
+                  simple_value: simpleValue
+                };
+              }
+
+              // Increment occurrence count
+              wordCount[text].count++;
+
+              // Add row to the table
+              data.push({
+                id: columns[0],
+                text,
+                english_value: englishValue,
+                simple_value: simpleValue
+              });
+
               tableBody.append(`
                 <tr>
                   <td>${columns[0]}</td>
-                  <td>${columns[1]}</td>
-                  <td>${columns[2]}</td>
-                  <td>${columns[3]}</td>
+                  <td>${text}</td>
+                  <td>${englishValue}</td>
+                  <td>${simpleValue}</td>
                 </tr>
               `);
             }
@@ -52,10 +125,69 @@
 
           // Initialize DataTables
           $('#csvTable').DataTable();
+
+          // Generate chart
+          const chartInstance = createChart(wordCount, 'all');
+
+          // Update chart on filter change
+          $('#filter').on('change', function () {
+            const filterValue = $(this).val();
+            updateChart(chartInstance, wordCount, filterValue);
+          });
         })
         .catch(error => console.error('Error loading CSV:', error));
+
+      // Function to create chart
+      function createChart(wordCount, filterValue) {
+        const { labels, counts } = getFilteredData(wordCount, filterValue);
+        const ctx = document.getElementById('wordOccurrenceChart').getContext('2d');
+        return new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Occurrences',
+              data: counts,
+              backgroundColor: 'rgba(255, 159, 64, 0.2)',
+              borderColor: 'rgba(255, 159, 64, 1)',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            scales: {
+              y: {
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      }
+
+      // Function to update chart
+      function updateChart(chartInstance, wordCount, filterValue) {
+        const { labels, counts } = getFilteredData(wordCount, filterValue);
+        chartInstance.data.labels = labels;
+        chartInstance.data.datasets[0].data = counts;
+        chartInstance.update();
+      }
+
+      // Function to get filtered data
+      function getFilteredData(wordCount, filterValue) {
+        const filteredWords = Object.keys(wordCount)
+          .filter(key => filterValue === 'all' || wordCount[key].english_value === parseInt(filterValue))
+          .map(key => ({
+            text: key,
+            count: wordCount[key].count
+          }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 10); // Top 10 by occurrences
+
+        return {
+          labels: filteredWords.map(item => item.text),
+          counts: filteredWords.map(item => item.count)
+        };
+      }
     });
   </script>
 </body>
 </html>
-
